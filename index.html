@@ -6,6 +6,8 @@
     <title>Valentine's Proposal</title>
     <!-- Google Fonts for elegant typography -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <!-- EmailJS CDN for sending emails -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         /* Reset and base styles */
         * {
@@ -21,7 +23,7 @@
                 radial-gradient(circle at 30% 40%, rgba(255, 215, 0, 0.1) 0%, transparent 30%), /* Very subtle gold accent */
                 radial-gradient(circle at 70% 60%, rgba(255, 182, 193, 0.2) 0%, transparent 40%), /* Soft pink */
                 linear-gradient(135deg, #ffe6f0 0%, #ffffff 40%, #fff5f7 80%, #ffe4e1 100%); /* Smooth pink-to-white base */
-            color: #333;
+            color: #222; /* Darkened for better contrast */
             overflow-x: hidden; /* Prevent horizontal scroll */
             min-height: 100vh;
             display: flex;
@@ -68,6 +70,7 @@
             color: #d63384;
             margin-bottom: 20px;
             animation: pulse 2s infinite;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1); /* Added for contrast */
         }
 
         h1 {
@@ -110,6 +113,15 @@
             background: #ccc; /* Gray */
             color: #666;
             transition: transform 0.3s ease; /* Smooth movement */
+            position: relative; /* Initial relative positioning */
+        }
+
+        /* Back button */
+        #back-btn {
+            display: none;
+            margin-top: 20px;
+            background: #ffb6c1;
+            color: white;
         }
 
         /* Home page GIF */
@@ -140,6 +152,56 @@
             height: auto;
             margin: 20px 0;
             border-radius: 10px;
+        }
+
+        /* Message form */
+        .message-form {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .message-form input, .message-form textarea, .message-form button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .message-form button {
+            background: linear-gradient(45deg, #ff69b4, #ffb6c1);
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Reply form */
+        .reply-form {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .reply-form textarea, .reply-form button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .reply-form button {
+            background: linear-gradient(45deg, #ff69b4, #ffb6c1);
+            color: white;
+            cursor: pointer;
         }
 
         @keyframes fadeIn {
@@ -179,10 +241,10 @@
         <h1>❤️ Uno Y Solo, Will You Be My Valentine? ❤️</h1>
         <div class="buttons">
             <button id="yes-btn">Yes 💖</button>
-            <button id="no-btn">No</button>
+            <button id="no-btn" tabindex="0">No</button>
         </div>
         <!-- Humorous GIF on home page -->
-        <img src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" alt="Funny love GIF" class="home-gif" />
+        <img src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" alt="Animated GIF of a funny love scenario with hearts and humor" class="home-gif" />
         <div class="letter" id="love-letter">
             My dearest Uno Y Solo,<br><br>
             From the moment I met you, my heart knew you were the one. Your smile lights up my world, and every day with you feels like a dream. I love you more than words can express, and I can't wait to create more beautiful memories together.<br><br>
@@ -190,27 +252,46 @@
             With all my love,<br>
             Ayo.<br><br>
             <!-- Romantic GIF portraying love -->
-            <img src="https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif" alt="Romantic love GIF" />
+            <img src="https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif" alt="Animated GIF of a romantic couple embracing with hearts" />
+        </div>
+        <!-- Back button -->
+        <button id="back-btn">Back to Question</button>
+        <!-- Message form -->
+        <div class="message-form" id="message-form">
+            <h3>Send Me a Message 💌</h3>
+            <input type="text" id="sender-name" placeholder="Your Name (optional)">
+            <textarea id="message-text" rows="4" placeholder="Write your message here..."></textarea>
+            <button id="send-message-btn">Send Message</button>
+        </div>
+        <!-- Reply form -->
+        <div class="reply-form" id="reply-form">
+            <h3>Send a Reply 💌</h3>
+            <textarea id="reply-text" rows="4" placeholder="Write your reply here..."></textarea>
+            <button id="send-reply-btn">Send Reply</button>
         </div>
     </div>
 
     <script>
-        // Generate falling hearts
+                // Initialize EmailJS
+        emailjs.init("6wqgfwbLiKbc4T1BU");
+
+        // Generate falling hearts (limited to 20 active for performance)
         const heartsContainer = document.getElementById('hearts-container');
         const emojis = ['❤️', '💖', '💕', '💗']; // Love emojis
+        let activeHearts = [];
 
         function createHeart() {
+            if (activeHearts.length >= 20) {
+                const oldestHeart = activeHearts.shift();
+                oldestHeart.remove();
+            }
             const heart = document.createElement('div');
             heart.className = 'heart';
             heart.textContent = emojis[Math.floor(Math.random() * emojis.length)];
             heart.style.left = Math.random() * 100 + 'vw'; // Random horizontal position
             heart.style.animationDuration = (Math.random() * 5 + 5) + 's'; // Random fall speed
             heartsContainer.appendChild(heart);
-
-            // Remove heart after animation
-            setTimeout(() => {
-                heart.remove();
-            }, 10000);
+            activeHearts.push(heart);
         }
 
         // Create hearts every 500ms
@@ -219,40 +300,126 @@
         // Button interactions
         const noBtn = document.getElementById('no-btn');
         const yesBtn = document.getElementById('yes-btn');
+        const backBtn = document.getElementById('back-btn');
         const loveLetter = document.getElementById('love-letter');
+        const messageForm = document.getElementById('message-form');
         const container = document.querySelector('.container');
 
-        // Function to move "No" button randomly within viewport
+        // Function to move "No" button randomly within viewport bounds
         function moveNoBtn() {
             const btnWidth = noBtn.offsetWidth;
             const btnHeight = noBtn.offsetHeight;
-            const maxX = window.innerWidth - btnWidth - 20; // Margin for safety
-            const maxY = window.innerHeight - btnHeight - 20;
+            const maxX = window.innerWidth - btnWidth - 40; // Margin for safety
+            const maxY = window.innerHeight - btnHeight - 40;
+            const minX = 20;
+            const minY = 20;
 
-            const newX = Math.random() * maxX;
-            const newY = Math.random() * maxY;
+            const newX = Math.max(minX, Math.min(maxX, Math.random() * maxX));
+            const newY = Math.max(minY, Math.min(maxY, Math.random() * maxY));
 
             noBtn.style.position = 'absolute';
             noBtn.style.left = newX + 'px';
             noBtn.style.top = newY + 'px';
         }
 
-        // Event listeners for "No" button (hover for desktop, touchstart for mobile)
+        // Event listeners for "No" button (hover for desktop, touchstart for mobile, keydown for accessibility)
         noBtn.addEventListener('mouseenter', moveNoBtn); // Desktop hover
         noBtn.addEventListener('touchstart', (e) => {
             e.preventDefault(); // Prevent click
             moveNoBtn();
         });
+        noBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                moveNoBtn();
+            }
+        });
 
         // "Yes" button click
         yesBtn.addEventListener('click', () => {
-            // Hide question, buttons, and home GIF
-            document.querySelector('h1').style.display = 'none';
-            document.querySelector('.buttons').style.display = 'none';
-            document.querySelector('.home-gif').style.display = 'none';
-            document.querySelector('.quote').style.display = 'none'; // Hide quote too
-            // Show letter
-            loveLetter.style.display = 'block';
+            // Send notification email
+            emailjs.send("service_l0l5xda", "template_55embhc", {
+                message: "Notification: Uno Y Solo clicked Yes on your Valentine's proposal!"
+            }).then(() => {
+                console.log("Notification email sent!");
+            }).catch((error) => {
+                console.error("Failed to send notification:", error);
+                alert("Couldn't send notification email, but proceeding...");
+            });
+
+            // Fade out elements over 1 second
+            const elementsToHide = [document.querySelector('h1'), document.querySelector('.buttons'), document.querySelector('.home-gif'), document.querySelector('.quote')];
+            elementsToHide.forEach(el => {
+                el.style.transition = 'opacity 1s ease';
+                el.style.opacity = '0';
+            });
+            setTimeout(() => {
+                elementsToHide.forEach(el => el.style.display = 'none');
+                // Show letter and form
+                loveLetter.style.display = 'block';
+                messageForm.style.display = 'block';
+                backBtn.style.display = 'block';
+            }, 1000);
+        });
+
+        // Back button click
+        backBtn.addEventListener('click', () => {
+            loveLetter.style.display = 'none';
+            messageForm.style.display = 'none';
+            document.getElementById('reply-form').style.display = 'none'; // Hide reply form too
+            backBtn.style.display = 'none';
+            document.querySelector('h1').style.display = 'block';
+            document.querySelector('.buttons').style.display = 'flex';
+            document.querySelector('.home-gif').style.display = 'block';
+            document.querySelector('.quote').style.display = 'block';
+            // Reset opacities
+            [document.querySelector('h1'), document.querySelector('.buttons'), document.querySelector('.home-gif'), document.querySelector('.quote')].forEach(el => {
+                el.style.opacity = '1';
+            });
+        });
+
+        // Send message button
+        document.getElementById('send-message-btn').addEventListener('click', () => {
+            const name = document.getElementById('sender-name').value || 'Anonymous';
+            const message = document.getElementById('message-text').value;
+            if (!message.trim()) {
+                alert("Please enter a message!");
+                return;
+            }
+            emailjs.send("service_l0l5xda", "template_55embhc", {
+                from_name: name,
+                message: message
+            }).then(() => {
+                alert("Message sent! Thank you.");
+                document.getElementById('message-text').value = '';
+                // Show reply form after sending
+                setTimeout(() => {
+                    document.getElementById('reply-form').style.display = 'block';
+                }, 1000);
+            }).catch((error) => {
+                console.error("Failed to send message:", error);
+                alert("Failed to send message. Please try again or check your connection.");
+            });
+        });
+
+        // Send reply button
+        document.getElementById('send-reply-btn').addEventListener('click', () => {
+            const replyMessage = document.getElementById('reply-text').value;
+            if (!replyMessage.trim()) {
+                alert("Please enter a reply!");
+                return;
+            }
+            emailjs.send("service_l0l5xda", "template_55embhc", {
+                from_name: document.getElementById('sender-name').value || 'Anonymous',
+                message: "Reply: " + replyMessage
+            }).then(() => {
+                alert("Reply sent! Thank you.");
+                document.getElementById('reply-text').value = '';
+                document.getElementById('reply-form').style.display = 'none'; // Hide after send
+            }).catch((error) => {
+                console.error("Failed to send reply:", error);
+                alert("Failed to send reply. Please try again.");
+            });
         });
     </script>
 </body>
